@@ -71,6 +71,14 @@ def sbx_get_metadata(sbxfilename):
     fs = factor*(info.resfreq/info.config.lines)/float(nplanes)
     if hasattr(info,'datetime'):
         timestamp = info.datetime
+    if 'knobby' in dir(info.config): 
+        stage_pos = [info.config.knobby.pos.x,
+                     info.config.knobby.pos.y,
+                     info.config.knobby.pos.z]
+        stage_angle = info.config.knobby.pos.a
+    else: # work with old SBX files
+        stage_pos = [float(f) for f in info.config.coord_rel[:3]]
+        stage_angle = float(info.config.coord_rel[-1])
     meta = dict(scanning_mode=SCAN_MODE[info.scanmode],
                 frame_rate = fs, # sampling rate per plane
                 num_frames = nframes,
@@ -79,10 +87,8 @@ def sbx_get_metadata(sbxfilename):
                 frame_size = info.sz,
                 num_target_frames = info.config.frames,
                 num_stored_frames = max_frames,
-                stage_pos = [info.config.knobby.pos.x,
-                             info.config.knobby.pos.y,
-                             info.config.knobby.pos.z],
-                stage_angle = info.config.knobby.pos.a,
+                stage_pos = stage_pos,
+                stage_angle = stage_angle,
                 etl_pos = etl_pos,
                 filename = os.path.basename(sbxfilename),
                 resonant_freq = info.resfreq,
@@ -91,7 +97,7 @@ def sbx_get_metadata(sbxfilename):
                 magnification = float(info.config.magnification_list[magidx]),
                 um_per_pixel_x = um_per_pixel_x,
                 um_per_pixel_y = um_per_pixel_x,
-                objective = info.objective)
+                objective = info.objective if 'objective' in dir(info) else None)
     for i in range(4):
         if hasattr(info.config,f'pmt{i}_gain'):
             meta[f'pmt{i}_gain'] = getattr(info.config,f'pmt{i}_gain')
