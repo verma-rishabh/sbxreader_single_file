@@ -71,14 +71,6 @@ def sbx_get_metadata(sbxfilename):
     fs = factor*(info.resfreq/info.config.lines)/float(nplanes)
     if hasattr(info,'datetime'):
         timestamp = info.datetime
-    if 'knobby' in dir(info.config): 
-        stage_pos = [info.config.knobby.pos.x,
-                     info.config.knobby.pos.y,
-                     info.config.knobby.pos.z]
-        stage_angle = info.config.knobby.pos.a
-    else: # work with old SBX files
-        stage_pos = [float(f) for f in info.config.coord_rel[:3]]
-        stage_angle = float(info.config.coord_rel[-1])
     meta = dict(scanning_mode=SCAN_MODE[info.scanmode],
                 frame_rate = fs, # sampling rate per plane
                 num_frames = nframes,
@@ -87,8 +79,10 @@ def sbx_get_metadata(sbxfilename):
                 frame_size = info.sz,
                 num_target_frames = info.config.frames,
                 num_stored_frames = max_frames,
-                stage_pos = stage_pos,
-                stage_angle = stage_angle,
+                stage_pos = [info.config.knobby.pos.x,
+                             info.config.knobby.pos.y,
+                             info.config.knobby.pos.z],
+                stage_angle = info.config.knobby.pos.a,
                 etl_pos = etl_pos,
                 filename = os.path.basename(sbxfilename),
                 resonant_freq = info.resfreq,
@@ -97,7 +91,7 @@ def sbx_get_metadata(sbxfilename):
                 magnification = float(info.config.magnification_list[magidx]),
                 um_per_pixel_x = um_per_pixel_x,
                 um_per_pixel_y = um_per_pixel_x,
-                objective = info.objective if 'objective' in dir(info) else None)
+                objective = info.objective)
     for i in range(4):
         if hasattr(info.config,f'pmt{i}_gain'):
             meta[f'pmt{i}_gain'] = getattr(info.config,f'pmt{i}_gain')
@@ -139,14 +133,16 @@ class sbx_memmap(np.memmap):
         nrows,ncols = sbx_metadata['frame_size']
         sbxshape = (sbx_metadata['num_channels'],
                     ncols,nrows,
-                    sbx_metadata['num_planes'],
-                    sbx_metadata['num_frames'])
+                    sbx_metadata['num_frames'],
+                    sbx_metadata['num_planes']
+        )
+                    
         self = super(sbx_memmap,self).__new__(self,filename,
                          dtype='uint16',
                          shape=sbxshape,
                          order='F',
                          mode='r')
-        self = self.transpose([4,3,0,2,1])
+        self = self.transpose([3,4,0,2,1])
         self.estimate_deadcols() # estimate the number of columns that are invalid in bidirectional mode because of the digitizer.
         self.offset_frame = None
         return self
@@ -202,6 +198,6 @@ class sbx_memmap(np.memmap):
         self.offset_frame += nframes
         arr = UINTMAX - np.frombuffer(arr, dtype='uint16').reshape(s,
             order = 'F')
-        return arr.transpose([4,3,0,2,1])
+        return arr.transpose([3,4,0,2,1])
 
         
